@@ -1,0 +1,14 @@
+Package: leoRtools
+Title: Funciones personales para análisis de datos y docencia
+Version: 0.1.0
+Authors@R: 
+    person("Leonardo", "Gualano", email = "leo.gualano@intech.gov.ar", role = c("aut", "cre"))
+Description: Conjunto de funciones personales para análisis estadístico,
+    manipulación de datos y docencia.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: 
+    car
