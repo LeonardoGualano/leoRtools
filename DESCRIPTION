@@ -12,3 +12,5 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
     car
+URL: https://github.com/LeonardoGualano/leoRtools
+BugReports: https://github.com/LeonardoGualano/leoRtools/issues
