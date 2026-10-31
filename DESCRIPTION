@@ -1,16 +1,25 @@
 Package: leoRtools
-Title: Funciones personales para análisis de datos y docencia
-Version: 0.1.0
-Authors@R: 
+Title: Personal Tools for Data Analysis and Teaching
+Version: 0.2.0
+Authors@R:
     person("Leonardo", "Gualano", email = "leo.gualano@intech.gov.ar", role = c("aut", "cre"))
-Description: Conjunto de funciones personales para análisis estadístico,
-    manipulación de datos y docencia.
-License: MIT
+Description: A collection of functions for statistical analysis and teaching:
+    graphical and formal checks of the assumptions of linear models (lm, aov)
+    and of models fitted with 'nlme' (gls, lme), the Rahman-Govindarajulu
+    modification of the Shapiro-Wilk normality test with Monte Carlo
+    p-values, and a simulated wheat dataset for teaching.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+Depends: 
+    R (>= 3.5)
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
-    car
+Imports:
+    car,
+    graphics,
+    stats
+Suggests:
+    nlme
 URL: https://github.com/LeonardoGualano/leoRtools
 BugReports: https://github.com/LeonardoGualano/leoRtools/issues
