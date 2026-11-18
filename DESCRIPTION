@@ -1,6 +1,6 @@
 Package: leoRtools
 Title: Personal Tools for Data Analysis and Teaching
-Version: 0.2.0
+Version: 0.3.0
 Authors@R:
     person("Leonardo", "Gualano", email = "leo.gualano@intech.gov.ar", role = c("aut", "cre"))
 Description: A collection of functions for statistical analysis and teaching:

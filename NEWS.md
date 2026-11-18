@@ -1,3 +1,14 @@
+# leoRtools 0.3.0
+
+* `assumptions()` gains a `type` argument. `type = "normalized"` uses
+  normalized residuals (in the plots and in the Shapiro-Wilk test) for `gls`
+  and `lme` models, which is the appropriate choice when the model has a
+  correlation structure (e.g. repeated measures). The default
+  (`type = "default"`) keeps the previous behavior.
+* `assumptions()` gains a `center` argument for Levene's test in linear
+  models: `"median"` (default, Brown-Forsythe variant, as before) or `"mean"`
+  (Levene's original test).
+
 # leoRtools 0.2.0
 
 ## Breaking changes

@@ -9,23 +9,35 @@
 #' homogeneity of variances (Levene's test) and normality of the raw residuals
 #' (Shapiro-Wilk test).
 #'
-#' Levene's test is computed with [car::leveneTest()], which by default centers
-#' on the group medians (i.e. the Brown-Forsythe variant). It is only defined
-#' when every explanatory variable is categorical, so if the model includes
-#' any quantitative predictor (e.g. a regression or an ANCOVA) the test is
-#' skipped with a message and its p-value is returned as `NA`.
+#' Levene's test is computed with [car::leveneTest()] on the absolute
+#' deviations of the response from the center of each group. By default the
+#' center is the group median (`center = "median"`, the Brown-Forsythe
+#' variant, more robust to non-normality); `center = "mean"` gives Levene's
+#' original test. The test is only defined when every explanatory variable
+#' is categorical, so if the model includes any quantitative predictor (e.g.
+#' a regression or an ANCOVA) it is skipped with a message and its p-value is
+#' returned as `NA`.
 #'
 #' @section Models fitted with nlme (`gls`, `lme`):
-#' Uses Pearson residuals, which are scaled by the modeled standard deviation.
-#' These models are fitted by maximum likelihood or REML and may model
-#' heterogeneity of variances explicitly (e.g. with [nlme::varIdent()]), so
-#' Pearson residuals should show constant spread if the variance structure is
-#' adequate. Therefore no Levene's test is performed: homogeneity of variances
-#' is assessed graphically and, if needed, by comparing models with and
-#' without a variance structure (e.g. by AIC or a likelihood-ratio test).
-#' Normality is tested on the Pearson residuals (Shapiro-Wilk test). For
-#' `lme` models, residuals and fitted values are at the innermost level of
-#' grouping.
+#' By default uses Pearson residuals, which are scaled by the modeled standard
+#' deviation. These models are fitted by maximum likelihood or REML and may
+#' model heterogeneity of variances explicitly (e.g. with [nlme::varIdent()]),
+#' so Pearson residuals should show constant spread if the variance structure
+#' is adequate. Therefore no Levene's test is performed: homogeneity of
+#' variances is assessed graphically and, if needed, by comparing models with
+#' and without a variance structure (e.g. by AIC or a likelihood-ratio test).
+#' Normality is tested on the same residuals shown in the plots
+#' (Shapiro-Wilk test). For `lme` models, residuals and fitted values are at
+#' the innermost level of grouping.
+#'
+#' If the model has a correlation structure (e.g. repeated measures with
+#' [nlme::corCompSymm()] or [nlme::corAR1()]), Pearson residuals are
+#' correlated, so the Shapiro-Wilk test on them is not valid. In that case use
+#' `type = "normalized"`: normalized residuals are Pearson residuals
+#' premultiplied by the inverse square root of the estimated correlation
+#' matrix, so they are approximately independent if the correlation structure
+#' is adequate. Without a correlation structure they are identical to Pearson
+#' residuals.
 #'
 #' @section Other models:
 #' Generalized linear models (`glm`) and multivariate linear models (`mlm`)
@@ -34,6 +46,12 @@
 #' classes give an informative error.
 #'
 #' @param model A fitted model of class `lm`, `aov`, `gls` or `lme`.
+#' @param type Type of residuals: `"default"` (standardized residuals for
+#'   linear models, Pearson residuals for `gls` and `lme` models) or
+#'   `"normalized"` (only for `gls` and `lme` models; see the section on
+#'   models fitted with nlme).
+#' @param center Center used in Levene's test for linear models: `"median"`
+#'   (default, Brown-Forsythe variant) or `"mean"` (Levene's original test).
 #' @param ... Currently not used.
 #' @return A named numeric vector with p-values rounded to 4 significant
 #'   digits: `Levene` (`NA` if it was skipped) and `Shapiro-Wilk` for linear
@@ -46,6 +64,7 @@
 #' # One-way ANOVA: both tests are reported
 #' m1 = lm(weight ~ group, data = PlantGrowth)
 #' assumptions(m1)
+#' assumptions(m1, center = "mean")  # Levene's test centered on the means
 #'
 #' # Regression: Levene's test is skipped
 #' m2 = lm(dist ~ speed, data = cars)
@@ -56,6 +75,11 @@
 #'   m3 = nlme::gls(weight ~ group, data = PlantGrowth,
 #'                  weights = nlme::varIdent(form = ~ 1 | group))
 #'   assumptions(m3)
+#'
+#'   # Repeated measures (correlated errors): use normalized residuals
+#'   m4 = nlme::gls(distance ~ age, data = nlme::Orthodont,
+#'                  correlation = nlme::corCompSymm(form = ~ 1 | Subject))
+#'   assumptions(m4, type = "normalized")
 #' }
 #' @export
 assumptions = function(model, ...) {
@@ -65,9 +89,15 @@ assumptions = function(model, ...) {
 
 #' @rdname assumptions
 #' @export
-assumptions.lm = function(model, ...) {
+assumptions.lm = function(model, type = c("default", "normalized"),
+                          center = c("median", "mean"), ...) {
   if (inherits(model, c("glm", "mlm")))                            # glm and mlm inherit from lm, but do not fit here
     stop("assumptions() does not support models of class '", class(model)[1], "'.")
+  type = match.arg(type)                                           # validate the choices
+  center = match.arg(center)
+  if (type == "normalized")
+    message("Linear models have no correlation structure, so normalized ",
+            "residuals do not apply: default residuals are used.")  # explain why the option is ignored
 
   e = stats::resid(model)                                          # raw residuals (Shapiro-Wilk test)
   re = stats::rstandard(model)                                     # standardized residuals (plots)
@@ -76,7 +106,8 @@ assumptions.lm = function(model, ...) {
   groups = levene_groups(model)                                    # NULL if Levene's test is not applicable
   if (!is.null(groups)) {
     y = stats::model.response(stats::model.frame(model))          # response (already transformed, e.g. log(y))
-    p_levene = car::leveneTest(y, groups)[["Pr(>F)"]][1]           # p-value of Levene's test
+    center_fun = switch(center, median = stats::median, mean = mean)  # function passed to leveneTest()
+    p_levene = car::leveneTest(y, groups, center = center_fun)[["Pr(>F)"]][1]  # p-value of Levene's test
   } else {
     message("Levene's test skipped: it requires at least one explanatory ",
             "variable and all of them must be categorical (factors).")  # explain why it is missing
@@ -91,15 +122,15 @@ assumptions.lm = function(model, ...) {
 
 #' @rdname assumptions
 #' @export
-assumptions.gls = function(model, ...) {
-  pearson_check(model)                                             # same checks for gls and lme
+assumptions.gls = function(model, type = c("default", "normalized"), ...) {
+  nlme_check(model, match.arg(type), ...)                          # same checks for gls and lme
 }
 
 
 #' @rdname assumptions
 #' @export
-assumptions.lme = function(model, ...) {
-  pearson_check(model)                                             # same checks for gls and lme
+assumptions.lme = function(model, type = c("default", "normalized"), ...) {
+  nlme_check(model, match.arg(type), ...)                          # same checks for gls and lme
 }
 
 
@@ -111,10 +142,15 @@ assumptions.default = function(model, ...) {
 }
 
 
-# Internal helper: plots and Shapiro-Wilk test on Pearson residuals (gls, lme)
-pearson_check = function(model) {
-  re = as.numeric(stats::residuals(model, type = "pearson"))       # residuals scaled by the modeled SD
-  diagnostic_plots(as.numeric(stats::fitted(model)), re, "Pearson residuals")
+# Internal helper: plots and Shapiro-Wilk test for gls and lme models
+nlme_check = function(model, type, ...) {
+  if ("center" %in% names(list(...)))
+    message("'center' is ignored: no Levene's test is performed for '",
+            class(model)[1], "' models.")                           # avoid silently ignoring the argument
+  rtype = if (type == "normalized") "normalized" else "pearson"    # default for nlme models: Pearson
+  re = as.numeric(stats::residuals(model, type = rtype))           # residuals as defined by nlme
+  label = if (rtype == "normalized") "Normalized residuals" else "Pearson residuals"
+  diagnostic_plots(as.numeric(stats::fitted(model)), re, label)
   c("Shapiro-Wilk" = signif(stats::shapiro.test(re)$p.value, 4))   # p-value of the Shapiro-Wilk test
 }
 

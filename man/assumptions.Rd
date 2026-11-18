@@ -10,11 +10,16 @@
 \usage{
 assumptions(model, ...)
 
-\method{assumptions}{lm}(model, ...)
+\method{assumptions}{lm}(
+  model,
+  type = c("default", "normalized"),
+  center = c("median", "mean"),
+  ...
+)
 
-\method{assumptions}{gls}(model, ...)
+\method{assumptions}{gls}(model, type = c("default", "normalized"), ...)
 
-\method{assumptions}{lme}(model, ...)
+\method{assumptions}{lme}(model, type = c("default", "normalized"), ...)
 
 \method{assumptions}{default}(model, ...)
 }
@@ -22,6 +27,14 @@ assumptions(model, ...)
 \item{model}{A fitted model of class \code{lm}, \code{aov}, \code{gls} or \code{lme}.}
 
 \item{...}{Currently not used.}
+
+\item{type}{Type of residuals: \code{"default"} (standardized residuals for
+linear models, Pearson residuals for \code{gls} and \code{lme} models) or
+\code{"normalized"} (only for \code{gls} and \code{lme} models; see the section on
+models fitted with nlme).}
+
+\item{center}{Center used in Levene's test for linear models: \code{"median"}
+(default, Brown-Forsythe variant) or \code{"mean"} (Levene's original test).}
 }
 \value{
 A named numeric vector with p-values rounded to 4 significant
@@ -43,25 +56,37 @@ Uses standardized residuals (\code{\link[stats:influence.measures]{stats::rstand
 homogeneity of variances (Levene's test) and normality of the raw residuals
 (Shapiro-Wilk test).
 
-Levene's test is computed with \code{\link[car:leveneTest]{car::leveneTest()}}, which by default centers
-on the group medians (i.e. the Brown-Forsythe variant). It is only defined
-when every explanatory variable is categorical, so if the model includes
-any quantitative predictor (e.g. a regression or an ANCOVA) the test is
-skipped with a message and its p-value is returned as \code{NA}.
+Levene's test is computed with \code{\link[car:leveneTest]{car::leveneTest()}} on the absolute
+deviations of the response from the center of each group. By default the
+center is the group median (\code{center = "median"}, the Brown-Forsythe
+variant, more robust to non-normality); \code{center = "mean"} gives Levene's
+original test. The test is only defined when every explanatory variable
+is categorical, so if the model includes any quantitative predictor (e.g.
+a regression or an ANCOVA) it is skipped with a message and its p-value is
+returned as \code{NA}.
 }
 
 \section{Models fitted with nlme (\code{gls}, \code{lme})}{
 
-Uses Pearson residuals, which are scaled by the modeled standard deviation.
-These models are fitted by maximum likelihood or REML and may model
-heterogeneity of variances explicitly (e.g. with \code{\link[nlme:varIdent]{nlme::varIdent()}}), so
-Pearson residuals should show constant spread if the variance structure is
-adequate. Therefore no Levene's test is performed: homogeneity of variances
-is assessed graphically and, if needed, by comparing models with and
-without a variance structure (e.g. by AIC or a likelihood-ratio test).
-Normality is tested on the Pearson residuals (Shapiro-Wilk test). For
-\code{lme} models, residuals and fitted values are at the innermost level of
-grouping.
+By default uses Pearson residuals, which are scaled by the modeled standard
+deviation. These models are fitted by maximum likelihood or REML and may
+model heterogeneity of variances explicitly (e.g. with \code{\link[nlme:varIdent]{nlme::varIdent()}}),
+so Pearson residuals should show constant spread if the variance structure
+is adequate. Therefore no Levene's test is performed: homogeneity of
+variances is assessed graphically and, if needed, by comparing models with
+and without a variance structure (e.g. by AIC or a likelihood-ratio test).
+Normality is tested on the same residuals shown in the plots
+(Shapiro-Wilk test). For \code{lme} models, residuals and fitted values are at
+the innermost level of grouping.
+
+If the model has a correlation structure (e.g. repeated measures with
+\code{\link[nlme:corCompSymm]{nlme::corCompSymm()}} or \code{\link[nlme:corAR1]{nlme::corAR1()}}), Pearson residuals are
+correlated, so the Shapiro-Wilk test on them is not valid. In that case use
+\code{type = "normalized"}: normalized residuals are Pearson residuals
+premultiplied by the inverse square root of the estimated correlation
+matrix, so they are approximately independent if the correlation structure
+is adequate. Without a correlation structure they are identical to Pearson
+residuals.
 }
 
 \section{Other models}{
@@ -76,6 +101,7 @@ classes give an informative error.
 # One-way ANOVA: both tests are reported
 m1 = lm(weight ~ group, data = PlantGrowth)
 assumptions(m1)
+assumptions(m1, center = "mean")  # Levene's test centered on the means
 
 # Regression: Levene's test is skipped
 m2 = lm(dist ~ speed, data = cars)
@@ -86,6 +112,11 @@ if (requireNamespace("nlme", quietly = TRUE)) {
   m3 = nlme::gls(weight ~ group, data = PlantGrowth,
                  weights = nlme::varIdent(form = ~ 1 | group))
   assumptions(m3)
+
+  # Repeated measures (correlated errors): use normalized residuals
+  m4 = nlme::gls(distance ~ age, data = nlme::Orthodont,
+                 correlation = nlme::corCompSymm(form = ~ 1 | Subject))
+  assumptions(m4, type = "normalized")
 }
 }
 \seealso{
